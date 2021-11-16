@@ -4,15 +4,15 @@
 \alias{textListToTibble}
 \title{Convert a list of text into a tibble}
 \usage{
-textListToTibble(list, pictures, internalTaxonId, scientificName)
+textListToTibble(split_texts, pictures, url, ID)
 }
 \arguments{
 \item{list}{a list of texts where each element is the text for one
 species and each sub-element is a section of that text}
 
-\item{internalTaxonId}{an identifier for each species}
-
 \item{scientificNames}{the scientific names to be searched}
+
+\item{internalTaxonId}{an identifier for each species}
 }
 \value{
 tibble with each section of the text as a row

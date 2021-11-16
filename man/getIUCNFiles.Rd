@@ -6,6 +6,9 @@
 \usage{
 getIUCNFiles(iucn_wd)
 }
+\arguments{
+\item{iucn_wd}{the working directory containing iucn download data}
+}
 \value{
 a list with simple summary, common names and synonyms
 }

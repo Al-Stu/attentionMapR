@@ -14,80 +14,60 @@
 #' article and another the text from each section
 #' page
 #'
-#' @import RSelenium
-#' @import rJava
 #' @export
 wikiScrapeR <- function(wiki_searches,
                         browser = c('chrome', 'firefox', 'phantomjs', 'internet explorer')
                         ){
-  rD <- RSelenium::rsDriver(browser = browser)
+  rD <- RSelenium::rsDriver(browser = 'firefox')
   remDr <- rD[["client"]]
+  url <- c()
   text <- c()
   contents <- c()
   pictures <- c()
-  remDr$navigate('https://www.wikipedia.org/')
-  keysToSearchBox(remDr,'xpath','//*[@id="searchInput"]',scientificName[1])
-  findAndClick(remDr, '/html/body/div[3]/form/fieldset/button/i')
-  text[1] <- getElementText(remDr, 'xpath', '/html/body/div[3]/div[3]/div[4]/div')
-  if(length(remDr$findElements('xpath', '//*[@id="toc"]'))!=0){
-    contents[1] <- getElementText(remDr, 'xpath', '//*[@id="toc"]')
-  } else {
-    contents[1] <- NA
-  }
-  pictures[1] <- length(remDr$findElements(using = 'class', 'image')) +
-    length(remDr$findElements(using = 'class', 'mediaContainer'))
-  for(i in 2:length(scientificName)){
-    Sys.sleep(2)
-    keysToSearchBox(remDr, 'xpath', '//*[@id="searchInput"]', scientificName[i])
-    findAndClick(remDr, '//*[@id="searchButton"]')
-    no_page <- remDr$findElements('xpath', '//*[@id="firstHeading"]')
-    if(length(no_page) != 0){
-      no_page_present <- getElementText(remDr, 'xpath', '//*[@id="firstHeading"]') %>%
-        grepl(pattern = 'Search results')
+  for(i in 1:3){
+    remDr$navigate(paste0('https://www.wikipedia.org/wiki/', wiki_searches$search[i]))
+    # give page a chance to load
+    Sys.sleep(1.3)
+    # returns 1 if the no page returned text comes up and 0 if it doesn't
+    no_page_returned <- remDr$findElements('css', 'table#noarticletext') %>%
+      length
+    if(no_page_returned == 1){
+      url[i] <- 'no page'
+      text[i] <- NA
+      contents[i] <- NA
+      pictures[i] <- NA
     } else{
-      no_page_present <- FALSE
-    }
-    if(!no_page_present){
-      text[i] <- getElementText(remDr, 'xpath', '/html/body/div[3]/div[3]/div[4]/div')
+      url[i] <- unlist(remDr$getCurrentUrl())
+      text[i] <- getElementText(remDr, 'css', 'div#mw-content-text')
       if(length(remDr$findElements('xpath', '//*[@id="toc"]'))!=0){
         contents[i] <- getElementText(remDr, 'xpath', '//*[@id="toc"]')
       } else {
         contents[i] <- NA
       }
-    } else{
-      text[i] <- NA
+      pictures[i] <- length(remDr$findElements(using = 'class', 'image')) +
+        length(remDr$findElements(using = 'class', 'mediaContainer'))
     }
-    pictures[i] <- length(remDr$findElements(using = 'class', 'image')) +
-      length(remDr$findElements(using = 'class', 'mediaContainer'))
+
   }
   closeRemDr(remDr, rD)
   gc()
   split_texts <- splitWikiScrape(text = text, contents = contents)
-  result <- textListToTibble(split_texts, pictures, internalTaxonId, scientificName)
+  result <- textListToTibble(split_texts = split_texts,
+                             pictures = pictures,
+                             url = url,
+                             ID = wiki_searches$ID
+                             )
   return(result)
 }
 
 #' Find an element and get text
 #'
-#' @param remDr
-#' @param using
-#' @param path
+#' @param remDr the remote driver
+#' @param using the type of path to use
+#' @param path the path to use
 #' @return a value containing the text from the element
-#' @export
-getElementText <- function(remDr, using, path){
-  page <- remDr$findElement(using, path)
-  text  <- page$getElementText() %>%
-    unlist()
-  return(text)
-}
-
-#' Find an element and get text
 #'
-#' @param remDr
-#' @param using
-#' @param path
-#' @return a value containing the text from the element
-#' @export
+#'
 #'
 splitWikiScrape <- function(text, contents){
   split_contents <- stringr::str_split(string = contents, pattern = '\\n') %>%
@@ -95,7 +75,9 @@ splitWikiScrape <- function(text, contents){
   split_texts <- list()
   for(i in 1:length(text)){
     if(!is.na(text[i])){
-      if(!all(is.na(split_contents[[i]]))){
+      if(length(text) == 1){
+        pattern = paste('\\n', split_contents, '\\[', sep = '', collapse = '|')
+      } else if(!all(is.na(split_contents[[i]]))){
         pattern = paste('\\n', split_contents[[i]], '\\[', sep = '', collapse = '|')
       } else {
         pattern = paste('\\n', c('References|External links'), '\\[', sep = '', collapse = '|')
@@ -118,8 +100,13 @@ splitWikiScrape <- function(text, contents){
           as.vector()
       }
       if(!any(is.na(split_contents[[i]]))){
-        names(split_texts[[i]]) <- split_contents[[i]][c(1:length(split_texts[[i]]))]
-        names(split_texts[[i]])[1] <- 'Introduction'
+        if(length(text) == 1){
+          names(split_texts[[i]]) <- split_contents[c(1:length(split_texts[[i]]))]
+          names(split_texts[[i]])[1] <- 'Introduction'
+        } else{
+          names(split_texts[[i]]) <- split_contents[[i]][c(1:length(split_texts[[i]]))]
+          names(split_texts[[i]])[1] <- 'Introduction'
+        }
       } else {
         names(split_texts[[i]]) <-
           c('Introduction','References','External links')[1:length(split_texts[[i]])]
@@ -140,51 +127,50 @@ splitWikiScrape <- function(text, contents){
 #' @param internalTaxonId an identifier for each species
 #' @return tibble with each section of the text as a row
 #'
-#' @export
-textListToTibble <- function(list, pictures, internalTaxonId, scientificName){
-  text_tibble <- tidyr::tibble(internalTaxonId = character(),
-                               scientificName = character(),
-                               section = character(),
-                               text = character(),
-                               length = numeric())
-  for(i in 1:length(list)){
-    if(!all(is.na(list[[i]]))){
-      names <- names(list[[i]])
-      tibble <- tidyr::tibble(internalTaxonId = internalTaxonId[i],
-                              scientificName = scientificName[i],
-                              section = names,
-                              text = list[[i]],
-                              length = stringr::str_count(text, ' '))
+#'
+textListToTibble <- function(split_texts, pictures, url, ID){
+  combined_tibble <- tidyr::tibble(ID = character(),
+                                   url = character(),
+                                   section = character(),
+                                   text = character(),
+                                   length = numeric()
+                                   )
+  for(i in 1:length(split_texts)){
+    if(!all(is.na(split_texts[[i]]))){
+      names <- names(split_texts[[i]])
+      text_tibble <- tidyr::tibble(ID = ID[i],
+                                   url = url[i],
+                                   section = names,
+                                   text = split_texts[[i]],
+                                   length = (stringr::str_count(text, ' ') + 1)
+                                   )
 
-      picture_tibble <- tidyr::tibble(internalTaxonId = internalTaxonId[i],
-                                      scientificName = scientificName[i],
+      picture_tibble <- tidyr::tibble(ID = ID[i],
+                                      url = url[i],
                                       section = 'pictures',
                                       text = NA,
-                                      length = pictures[i])
+                                      length = pictures[i]
+                                      )
 
-      text_tibble <- dplyr::bind_rows(text_tibble, tibble, picture_tibble)
+      combined_tibble <- dplyr::bind_rows(combined_tibble, text_tibble, picture_tibble)
     } else{
-      tibble <- tidyr::tibble(internalTaxonId = internalTaxonId[i],
-                              scientificName = scientificName[i],
-                              section = NA,
-                              text = NA,
-                              length = 0)
+      text_tibble <- tidyr::tibble(ID = ID[i],
+                                   url = url[i],
+                                   section = NA,
+                                   text = NA,
+                                   length = 0
+                                   )
 
-      picture_tibble <- tidyr::tibble(internalTaxonId = internalTaxonId[i],
-                                      scientificName = scientificName[i],
+      picture_tibble <- tidyr::tibble(ID = ID[i],
+                                      url = url[i],
                                       section = 'pictures',
                                       text = NA,
-                                      length = pictures[i])
+                                      length = pictures[i]
+                                      )
 
-      text_tibble <- dplyr::bind_rows(text_tibble, tibble, picture_tibble)
+      combined_tibble <- dplyr::bind_rows(combined_tibble, tibble, picture_tibble)
     }
   }
-  return(text_tibble)
+  return(combined_tibble)
 }
 
-getWiki <- function(species_data){
-  scientificName <- species_data[['assessments']]$scientificName
-  internalTaxonId <- species_data[['assessments']]$internalTaxonId
-  species_data[['wiki_texts']] <- wikiScrapeR(scientificName, internalTaxonId)
-  return(species_data)
-}

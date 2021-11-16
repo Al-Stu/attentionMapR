@@ -11,7 +11,6 @@
 #' the names the name in the row contains, and \code{recommendation} with keep
 #' (names with no overlap), possibly unnecessary (contains another name for the)
 #' same species, or warn (contained within the name of another species)
-#' @importFrom tidyr unnest
 overlapCheck <- function(names){
   # find overlapping names
   overlap_checked_names <- overlappingNames(names) %>%
@@ -20,7 +19,7 @@ overlapCheck <- function(names){
   names_contained_in_another <- overlap_checked_names %>%
     ungroup() %>%
     select(name, contained_names, contained_names_IDs) %>%
-    unnest(c('contained_names', 'contained_names_IDs')) %>%
+    tidyr::unnest(c('contained_names', 'contained_names_IDs')) %>%
     filter(!is.na(contained_names)) %>%
     rename(ID = contained_names_IDs,
            contained_in = name,
@@ -34,7 +33,7 @@ overlapCheck <- function(names){
               )
 
   all_overlap_variables <- overlap_checked_names %>%
-    unnest(cols = c(contained_names, contained_names_IDs)) %>%
+    tidyr::unnest(cols = c(contained_names, contained_names_IDs)) %>%
     left_join(names_contained_in_another) %>%
     unique() %>%
     mutate(contained_in_name_for_different_species = contained_in_IDs != ID,
@@ -42,7 +41,7 @@ overlapCheck <- function(names){
            contained_names = paste(contained_names_IDs, contained_names, sep = '; ')) %>%
     group_by(ID, name, name_ID) %>%
     summarise(across(c('contained_names',
-                       'contained_in',
+                       'contained_in'
                        ),
                      function(X) list(unique(X)) %>%
                        ifelse(test = . == 'NA; NA',

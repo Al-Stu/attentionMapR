@@ -6,6 +6,13 @@
 \usage{
 splitWikiScrape(text, contents)
 }
+\arguments{
+\item{remDr}{the remote driver}
+
+\item{using}{the type of path to use}
+
+\item{path}{the path to use}
+}
 \value{
 a value containing the text from the element
 }

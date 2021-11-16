@@ -66,7 +66,7 @@ formatIUCN <- function(iucn_synonyms, iucn_common_names, iucn_simple_summary){
 
 #' Get files from IUCN working directory
 #'
-#' @param iucn_wd
+#' @param iucn_wd the working directory containing iucn download data
 #' @return a list with simple summary, common names and synonyms
 #' @import dplyr
 #' @importFrom readr read_csv
