@@ -25,8 +25,6 @@
 #' @param end_day the day you want to end with, defaults to the last
 #' day of the month
 #'
-#' @import jsonlite
-#' @importFrom lubridate days_in_month
 #' @export
 #'
 wikiPageViews <- function(wiki_urls,
@@ -34,10 +32,10 @@ wikiPageViews <- function(wiki_urls,
                           access = 'all-access',
                           agent = 'user',
                           start_year,
-                          start_month = 01,
-                          start_day = 01,
+                          start_month = '01',
+                          start_day = '01',
                           end_year,
-                          end_month = 12,
+                          end_month = '12',
                           end_day = NULL
                           ){
   # set end day to last day of the month if not set by user
@@ -52,25 +50,33 @@ wikiPageViews <- function(wiki_urls,
   # check access method is correct
   checkAccess(access)
 
+  # check agent is correct
+  checkAgent(agent)
+
   # create list for all the JSON results
   bird_JSON_list <- list()
 
   # create tibble for page views
   page_views <- wiki_urls %>%
-    mutate(page_views = as.numeric(NA))
+    dplyr::mutate(page_views = as.numeric(NA))
 
   # loop through urls querying JSON API
   for(i in 1:nrow(wiki_urls)){
-    wiki_name <- wiki_urls$url[i] %>% gsub('https://[a-z]+[.]wikipedia[.]org/wiki/', '')
+    wiki_name <- wiki_urls$url[i] %>%
+      gsub(pattern = 'https://[a-z][a-z][.]wikipedia[.]org/wiki/',
+           replacement = ''
+           )
     country <- wiki_urls$url[i] %>%
-      gsub('^https://|[.]wikipedia[.]org/wiki/.+$', '')
+      gsub(pattern = '^https://|[.]wikipedia[.]org/wiki/.+$',
+           replacement = ''
+           )
     Sys.sleep(0.01) # because this JSON REST API won't accept more than 200 requests per second (I'm being extra cautious)
     # don't want to bother searching species that don't have a page
     if(!is.na(wiki_name)){
       # make url for API query
       url <- paste0("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/",
                     country,
-                    "wikipedia.org/",
+                    ".wikipedia.org/",
                     access,
                     "/",
                     agent,
@@ -84,10 +90,10 @@ wikiPageViews <- function(wiki_urls,
                     paste0(end_year, end_month, end_day)
                     )
       # make API query
-      bird_JSON_list[[wiki_urls$ID[i]]] <- tryCatch(fromJSON(url), error=function(err) NA)
+      bird_JSON_list[[wiki_urls$ID[i]]] <- tryCatch(jsonlite::fromJSON(url), error=function(err) NA)
       # add total for year to bird_wikipedia_data if there is one
-      page_views$page_views[i] <- ifelse(!is.na(bird_JSON_list[[i]]),
-                                         sum(bird_JSON_list[[i]]$items$views),
+      page_views$page_views[i] <- ifelse(!is.na(bird_JSON_list[[wiki_urls$ID[i]]]),
+                                         sum(bird_JSON_list[[wiki_urls$ID[i]]]$items$views),
                                          NA
                                          )
     } else{
@@ -127,11 +133,10 @@ checkDate <- function(year, month, day, start_or_end){
 #' @param end_year the end year to be considered
 #' @param end_month the end month to be considered
 #'
-#'
 lastDayOfMonth <- function(end_year, end_month){
   paste(end_year, end_month, 01, sep = '-') %>%
     as.Date('%Y-%m-%d') %>%
-    days_in_month()
+    lubridate::days_in_month()
 }
 
 #' check access method is acceptable

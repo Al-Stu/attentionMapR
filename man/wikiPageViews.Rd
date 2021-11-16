@@ -10,10 +10,10 @@ wikiPageViews(
   access = "all-access",
   agent = "user",
   start_year,
-  start_month = 1,
-  start_day = 1,
+  start_month = "01",
+  start_day = "01",
   end_year,
-  end_month = 12,
+  end_month = "12",
   end_day = NULL
 )
 }

@@ -8,7 +8,7 @@ returning another}
 overlapCheck(names)
 }
 \arguments{
-\item{names}{the tibble of names etc.}
+\item{names}{the tidyr::tibble of names etc.}
 }
 \value{
 names with three extra columns \code{contained_in} a list

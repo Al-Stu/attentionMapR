@@ -2,20 +2,19 @@
 % Please edit documentation in R/wikiScrapeR.R
 \name{splitWikiScrape}
 \alias{splitWikiScrape}
-\title{Find an element and get text}
+\title{split text scraped from wikipedia pages into the constituent sections}
 \usage{
 splitWikiScrape(text, contents)
 }
 \arguments{
-\item{remDr}{the remote driver}
+\item{text}{vector of texts from wikipedia pages}
 
-\item{using}{the type of path to use}
-
-\item{path}{the path to use}
+\item{contents}{vector of contents sections corresponding to texts}
 }
 \value{
-a value containing the text from the element
+a list with one element per page and, within that, one element
+per section
 }
 \description{
-Find an element and get text
+split text scraped from wikipedia pages into the constituent sections
 }

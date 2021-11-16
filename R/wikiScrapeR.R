@@ -5,27 +5,39 @@
 
 #' scrape all text for a vector of species from wikipedia
 #'
-#' @param wiki_searches a tibble with cols \code{ID} (a unique identifier for
-#' each  species) and \code{search} (the term that will be searched in wikipedia
-#' to find the page)
+#' @param wiki_searches a tibble with cols \code{ID} (a unique identifier
+#' for each  species) and \code{search} (the term that will be searched in
+#' wikipedia to find the page)
+#' @param language the language code of wikipedia page to search, defaults
+#' to English. A full list of codes used can be found in the
+#' wiki_language_codes table in this package (a copy of the table from
+#' https://en.wikipedia.org/wiki/List_of_Wikipedias)
 #' @param browser the browser to be used by RSelenium, one of 'chrome',
 #' 'firefox', 'phantomjs', 'internet explorer'
-#' @return a list containing one tibble with the name of each species' wikipedia
-#' article and another the text from each section
-#' page
+#' @return a list containing one tibble with the name of each species'
+#' wikipedia article and another the text from each section
 #'
 #' @export
 wikiScrapeR <- function(wiki_searches,
+                        language = 'en',
                         browser = c('chrome', 'firefox', 'phantomjs', 'internet explorer')
                         ){
+  if(!language %in% wiki_language_codes$`WP code`){
+    stop('language input is not valid, please check the wiki_language_codes table for correct code for each language')
+  }
   rD <- RSelenium::rsDriver(browser = 'firefox')
   remDr <- rD[["client"]]
   url <- c()
   text <- c()
   contents <- c()
   pictures <- c()
-  for(i in 1:3){
-    remDr$navigate(paste0('https://www.wikipedia.org/wiki/', wiki_searches$search[i]))
+  for(i in 1:nrow(wiki_searches)){
+    remDr$navigate(paste0('https://',
+                          language,
+                          '.wikipedia.org/wiki/',
+                          wiki_searches$search[i]
+                          )
+                   )
     # give page a chance to load
     Sys.sleep(1.3)
     # returns 1 if the no page returned text comes up and 0 if it doesn't
@@ -60,14 +72,30 @@ wikiScrapeR <- function(wiki_searches,
   return(result)
 }
 
-#' Find an element and get text
+#' make names into wikipedia url format
 #'
-#' @param remDr the remote driver
-#' @param using the type of path to use
-#' @param path the path to use
-#' @return a value containing the text from the element
+#' @param main_names a tibble with the ID of each species and its main name
+#' (scientific is best to minimise ambiguity)
 #'
+#' @return the same tibble with column 'search' added containing formatted
+#' names
 #'
+formatNamesToWiki <- function(main_names){
+  dplyr::mutate(main_names,
+                search = gsub(x = main_name,
+                              pattern = '[ ]',
+                              replacement = '_'
+                              )
+                )
+}
+
+#' split text scraped from wikipedia pages into the constituent sections
+#'
+#' @param text vector of texts from wikipedia pages
+#' @param contents vector of contents sections corresponding to texts
+#'
+#' @return a list with one element per page and, within that, one element
+#' per section
 #'
 splitWikiScrape <- function(text, contents){
   split_contents <- stringr::str_split(string = contents, pattern = '\\n') %>%

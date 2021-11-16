@@ -11,7 +11,6 @@
 #' the species; \code{name_type}, the type of name (in this case scientific or
 #' common); \code{language}, the language of the name; and \code{main}, logical,
 #' whether the name is to be used as the main name for the species
-#' @import dplyr
 #'
 #' @export
 #'
@@ -36,7 +35,6 @@ formatIUCNDirectory <- function(iucn_wd){
 #' the species; \code{name_type}, the type of name (in this case scientific or
 #' common); \code{language}, the language of the name; and \code{main}, logical,
 #' whether the name is to be used as the main name for the species
-#' @import dplyr
 #'
 #' @export
 #'
@@ -50,7 +48,7 @@ formatIUCN <- function(iucn_synonyms, iucn_common_names, iucn_simple_summary){
                      ID = paste0(genusName, ' ', speciesName)
                      )
 
-  all_names <- bind_rows(formatIUCNSynonyms(ID_name_and_taxon_id,
+  all_names <- dplyr::bind_rows(formatIUCNSynonyms(ID_name_and_taxon_id,
                                         iucn_synonyms
                                         ),
                      formatIUCNCommonNames(ID_name_and_taxon_id,
@@ -58,8 +56,8 @@ formatIUCN <- function(iucn_synonyms, iucn_common_names, iucn_simple_summary){
                                            )
                      )
 
-  all_names_ordered <- left_join(ID_name_and_taxon_id, all_names) %>%
-    select(!internalTaxonId)
+  all_names_ordered <- dplyr::left_join(ID_name_and_taxon_id, all_names) %>%
+    dplyr::select(!internalTaxonId)
 
   return(all_names_ordered)
 }
@@ -68,14 +66,12 @@ formatIUCN <- function(iucn_synonyms, iucn_common_names, iucn_simple_summary){
 #'
 #' @param iucn_wd the working directory containing iucn download data
 #' @return a list with simple summary, common names and synonyms
-#' @import dplyr
-#' @importFrom readr read_csv
 #'
 
 getIUCNFiles <- function(iucn_wd){
-  list(simple_summary = read_csv(paste0(iucn_wd, '/simple_summary.csv')),
-       common_names = read_csv(paste0(iucn_wd, '/common_names.csv')),
-       synonyms = read_csv(paste0(iucn_wd, '/synonyms.csv'))
+  list(simple_summary = readr::read_csv(paste0(iucn_wd, '/simple_summary.csv')),
+       common_names = readr::read_csv(paste0(iucn_wd, '/common_names.csv')),
+       synonyms = readr::read_csv(paste0(iucn_wd, '/synonyms.csv'))
        )
 }
 
@@ -90,7 +86,6 @@ getIUCNFiles <- function(iucn_wd){
 #' the species; \code{name_type}, the type of name (in this case scientific or
 #' common); \code{language}, the language of the name; and \code{main}, logical,
 #' whether the name is to be used as the main name for the species
-#' @import stringi
 #' @export
 #'
 formatIUCNSynonyms <- function(ID_name_and_taxon_id, iucn_synonyms){
@@ -98,22 +93,22 @@ formatIUCNSynonyms <- function(ID_name_and_taxon_id, iucn_synonyms){
   ID_names <- formatID_name_and_taxon_id(ID_name_and_taxon_id)
 
   # pull out names from free text column
-  scientific_names_from_text <- full_join(ID_name_and_taxon_id,
+  scientific_names_from_text <- dplyr::full_join(ID_name_and_taxon_id,
                                           iucn_synonyms
                                           ) %>%
-    transmute(internalTaxonId = internalTaxonId,
+    dplyr::transmute(internalTaxonId = internalTaxonId,
               ID = ID,
-              name = stri_extract(name,
+              name = stringi::stri_extract(name,
                                            regex = '^\\p{Lu}[a-z .]+'
                                            ) %>%
-                stri_replace_all(regex = '[ ]$', ''),
+                stringi::stri_replace_all(regex = '[ ]$', ''),
               name_type = 'scientific',
               language = as.character(NA),
               main = F
               ) %>%
-    filter(!is.na(name)) %>%
-    bind_rows(filter(., grepl(pattern = 'ssp', x = name)) %>%
-                mutate(name = gsub(x = name,
+    dplyr::filter(!is.na(name)) %>%
+    dplyr::bind_rows(dplyr::filter(., grepl(pattern = 'ssp', x = name)) %>%
+                dplyr::mutate(name = gsub(x = name,
                                    pattern = ' ssp[.] ',
                                    replacement = ' '
                                    )
@@ -121,30 +116,30 @@ formatIUCNSynonyms <- function(ID_name_and_taxon_id, iucn_synonyms){
               )
 
   # pull out names from the genus and species names columns
-  scientific_names_from_columns <- full_join(ID_name_and_taxon_id,
+  scientific_names_from_columns <- dplyr::full_join(ID_name_and_taxon_id,
                                              iucn_synonyms
                                              ) %>%
-    transmute(internalTaxonId = internalTaxonId,
+    dplyr::transmute(internalTaxonId = internalTaxonId,
               ID = ID,
               name = paste0(genusName, ' ', speciesName),
               name_type = 'scientific',
               language = as.character(NA),
               main = F
               ) %>%
-    filter(!is.na(name) & name != 'NA NA')
+    dplyr::filter(!is.na(name) & name != 'NA NA')
 
   # bind into one tibble
-  scientific_names <- bind_rows(ID_names,
+  scientific_names <- dplyr::bind_rows(ID_names,
                                 scientific_names_from_text,
                                 scientific_names_from_columns
                                 )
 
   # reorder into original order and remove internal taxon id
-  scientific_names <- left_join(ID_name_and_taxon_id,
+  scientific_names <- dplyr::left_join(ID_name_and_taxon_id,
                                 scientific_names
                                 ) %>%
     .[!duplicated(.$name), ] %>%
-    select(!internalTaxonId)
+    dplyr::select(!internalTaxonId)
 
   # return this
   return(scientific_names)
@@ -165,8 +160,8 @@ formatIUCNSynonyms <- function(ID_name_and_taxon_id, iucn_synonyms){
 #' @importFrom tm removePunctuation
 #'
 formatIUCNCommonNames <- function(ID_name_and_taxon_id, iucn_common_names){
-  common_names <- full_join(ID_name_and_taxon_id, iucn_common_names) %>%
-    transmute(ID = ID,
+  common_names <- dplyr::full_join(ID_name_and_taxon_id, iucn_common_names) %>%
+    dplyr::transmute(ID = ID,
            name = tolower(name) %>%
              gsub(pattern = '-', replacement = ' ') %>%
              removePunctuation(),
@@ -174,19 +169,19 @@ formatIUCNCommonNames <- function(ID_name_and_taxon_id, iucn_common_names){
            language = language,
            main = main == 'true'
            ) %>%
-    group_by(ID, name, name_type, language) %>%
-    summarise(main = any(main)) %>%
-    group_by(ID, name, name_type) %>%
-    summarise(language = paste(language, collapse = '; '),
+    dplyr::group_by(ID, name, name_type, language) %>%
+    dplyr::summarise(main = any(main)) %>%
+    dplyr::group_by(ID, name, name_type) %>%
+    dplyr::summarise(language = paste(language, collapse = '; '),
               main = any(main)
               ) %>%
-    group_by(ID, language) %>%
-    mutate(main = ifelse(length(unique(name)) == 1,
+    dplyr::group_by(ID, language) %>%
+    dplyr::mutate(main = ifelse(length(unique(name)) == 1,
                          T,
                          main
                          )
            ) %>%
-    ungroup()
+    dplyr::ungroup()
 
   return(common_names)
 }
@@ -203,7 +198,7 @@ formatIUCNCommonNames <- function(ID_name_and_taxon_id, iucn_common_names){
 #'
 formatID_name_and_taxon_id <- function(ID_name_and_taxon_id){
   ID_name_and_taxon_id %>%
-    mutate(ID = ID,
+    dplyr::mutate(ID = ID,
            name = ID,
            name_type = 'scientific',
            language = as.character(NA),

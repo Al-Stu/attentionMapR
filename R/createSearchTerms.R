@@ -94,65 +94,6 @@ originalIDOrder <- function(table_to_order, names){
   return(ordered_table)
 }
 
-#' find names that contained at least one other name and return the number of
-#' the name they contain
-#' @param names tibble of all the names for each item
-#' @return logical vector where true means that name is contained within at
-#' least one other name
-#' @importFrom tidyr separate_rows
-#'
-overlappingNames <- function(names){
-  species_adist <- adist(x = names$name,
-                         partial = TRUE,
-                         ignore.case = T
-                         )
-
-  overlapping_names <- tibble(name_number = 1:ncol(species_adist),
-                              overlaps = apply(species_adist,
-                                               FUN = function(X) length(which(X == 0)) > 1,
-                                               MARGIN = 2
-                                               ),
-                              overlaps_with = apply(species_adist,
-                                                    FUN = function(X) paste(which(X == 0),
-                                                                            collapse = ','
-                                                                            ),
-                                                    MARGIN = 2
-                                                    )
-                              ) %>%
-    rowwise() %>%
-    mutate(overlaps_with = gsub(x = overlaps_with,
-                                pattern = name_number,
-                                replacement = ''
-                                ) %>%
-             gsub(pattern = '^,|,$',
-                  replacement = '')
-           ) %>%
-    ungroup() %>%
-    separate_rows(overlaps_with, sep = ',') %>%
-    rowwise() %>%
-    transmute(name_number = name_number,
-              ID = names$ID[name_number],
-              name = names$name[name_number],
-              contains_another_name = overlaps,
-              contained_names = names$name[as.numeric(overlaps_with)],
-              contained_names_IDs = names$ID[as.numeric(overlaps_with)]
-              ) %>%
-    ungroup() %>%
-    group_by(ID, name, name_number) %>%
-    summarise(contains_another_name = unique(contains_another_name),
-           contained_names = list(contained_names),
-           contained_names_IDs = list(contained_names_IDs),
-           contains_another_name_for_same_species = ifelse(is.na(contained_names_IDs),
-                                                           F,
-                                                           any(contained_names_IDs == ID)
-                                                           )
-           ) %>%
-    .[order(.$name_number), ] %>%
-    select(!name_number)
-
-  return(overlapping_names)
-}
-
 #' Creates a Google search term from common and scientific names
 #'
 #' @param names tibble with at least cols \code{ID}, \code{name}
